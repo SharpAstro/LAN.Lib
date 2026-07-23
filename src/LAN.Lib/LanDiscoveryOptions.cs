@@ -1,0 +1,34 @@
+using System;
+using System.Collections.Generic;
+
+namespace LAN.Lib;
+
+/// <summary>
+/// Configuration for <see cref="LanDiscovery"/> / <see cref="ServiceCollectionExtensions.AddLanDiscovery"/>.
+/// </summary>
+public sealed class LanDiscoveryOptions
+{
+    /// <summary>The service name we announce and that consumers filter on (e.g. "tianwen-server").
+    /// Required when <see cref="Announce"/> is true.</summary>
+    public string ServiceName { get; set; } = "";
+
+    /// <summary>The port our service listens on, announced in the beacon so a peer knows where to open
+    /// its session/control channel (discovery itself is UDP on <see cref="LanProtocol.DiscoveryPort"/>).</summary>
+    public int ServicePort { get; set; }
+
+    /// <summary>Human display name for this node, read fresh each beacon so a change propagates.
+    /// Defaults to the machine name.</summary>
+    public string NodeName { get; set; } = Environment.MachineName;
+
+    /// <summary>Path to a file holding this node's <b>stable</b> id (minted once, then reused). Set on a
+    /// node that consumers bind to across restarts; leave null for a pure consumer/monitor.</summary>
+    public string? StableNodeIdPath { get; set; }
+
+    /// <summary>When false, listen only — never broadcast an announce or a bye. A pure monitor client
+    /// that wants to see peers without appearing as one itself.</summary>
+    public bool Announce { get; set; } = true;
+
+    /// <summary>Extra facts to advertise in every announce (e.g. a version or capability flag), on top
+    /// of the well-known machine/pid/node properties. Keys must be simple identifiers.</summary>
+    public IDictionary<string, string> Properties { get; } = new Dictionary<string, string>();
+}

@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LAN.Lib/LAN.Lib.csproj" />
+    <Project Path="src/LAN.Lib.Tests/LAN.Lib.Tests.csproj" />
+  </Folder>
+</Solution>

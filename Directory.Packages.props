@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The library depends only on the DI + hosting abstractions (for AddLanDiscovery + the hosted
+         beacon service); the discovery/protocol/transport code itself has zero external dependencies. -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Test stack -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <!-- FakeTimeProvider for deterministic beacon-cadence / expiry tests -->
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.4.0" />
+    <!-- The concrete DI container, to build a provider in the AddLanDiscovery wiring test -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+  </ItemGroup>
+</Project>
