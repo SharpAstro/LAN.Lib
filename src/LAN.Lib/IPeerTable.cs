@@ -10,6 +10,12 @@ namespace LAN.Lib;
 /// </summary>
 public interface IPeerTable
 {
+    /// <summary>This node's own stable node id, as loaded/minted from
+    /// <see cref="LanDiscoveryOptions.StableNodeIdPath"/> — empty when no path was configured (a pure
+    /// listen-only consumer has no stable identity to announce). A node logs this at startup so an
+    /// operator can find it in a "bind by node id" flow; peers never see it back as their own.</summary>
+    string NodeId { get; }
+
     /// <summary>All currently-visible peers, in a stable order (name, then machine, then PID). A fresh
     /// snapshot each call — safe to iterate without locking.</summary>
     IReadOnlyList<LanPeer> Peers { get; }

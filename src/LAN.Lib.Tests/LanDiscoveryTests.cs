@@ -185,6 +185,28 @@ public class LanDiscoveryTests
     }
 
     [Fact]
+    public void NodeId_ExposesOwnIdentity()
+    {
+        var bus = new FakeLanBus();
+        var time = new FakeTimeProvider();
+        var local = bus.CreateNode("192.168.1.10");
+        using var discovery = NewDiscovery(local, time, nodeId: "node-self");
+
+        discovery.NodeId.ShouldBe("node-self");
+    }
+
+    [Fact]
+    public void NodeId_EmptyForListenOnlyConsumer()
+    {
+        var bus = new FakeLanBus();
+        var time = new FakeTimeProvider();
+        var local = bus.CreateNode("192.168.1.10");
+        using var discovery = NewDiscovery(local, time, announce: false);
+
+        discovery.NodeId.ShouldBe("");
+    }
+
+    [Fact]
     public async Task ListenOnly_DoesNotBroadcast_ButStillReceives()
     {
         var bus = new FakeLanBus();

@@ -59,6 +59,9 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
     }
 
     /// <inheritdoc />
+    public string NodeId => _identity.NodeId;
+
+    /// <inheritdoc />
     public IReadOnlyList<LanPeer> Peers => SortedSnapshot(_peers.Values);
 
     /// <inheritdoc />
