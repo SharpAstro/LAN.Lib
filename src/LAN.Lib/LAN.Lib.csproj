@@ -10,8 +10,8 @@
     <!-- AssemblyVersion fixed at major.minor.0.0; the NuGet package version is composed in CI via
          $(VERSION_PREFIX)$(VERSION_REV)+$(VERSION_HASH). Bump VersionPrefix here on minor feature
          additions / breaking changes; CI's run_number drives the patch. -->
-    <VersionPrefix>1.0.0</VersionPrefix>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <VersionPrefix>1.1.0</VersionPrefix>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
     <PackageId>LAN.Lib</PackageId>
     <Description>Zero-dependency LAN peer discovery: a symmetric UDP announce beacon + self-expiring peer table over a shared broadcast domain, filtered by service name, with a stable-node-id concept and an extensible property bag. TimeProvider-driven (deterministic in tests), AOT/trim friendly, with a DI extension for the .NET generic host.</Description>
     <PackageTags>LAN;Discovery;UDP;Broadcast;Beacon;Peer;Networking;ServiceDiscovery</PackageTags>

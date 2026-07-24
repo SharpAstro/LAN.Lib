@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Threading.Tasks;
 using LAN.Lib;
 using Microsoft.Extensions.Time.Testing;
 using Shouldly;
@@ -39,13 +40,13 @@ public class LanDiscoveryTests
     }
 
     [Fact]
-    public void RemoteAnnounce_Appears_WithSenderAddressAndAnnouncedPort()
+    public async Task RemoteAnnounce_Appears_WithSenderAddressAndAnnouncedPort()
     {
         var bus = new FakeLanBus();
         var time = new FakeTimeProvider();
         var local = bus.CreateNode("192.168.1.10");
         using var discovery = NewDiscovery(local, time);
-        discovery.Start();
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
 
         local.DeliverDatagram(new DiscoveryDatagram(
             RemoteAnnounce("remote-1", 1888, "Rig", nodeId: "node-xyz", machine: "MiniPC", pid: 4321),
@@ -64,27 +65,27 @@ public class LanDiscoveryTests
     }
 
     [Fact]
-    public void OwnAnnounce_IsIgnored()
+    public async Task OwnAnnounce_IsIgnored()
     {
         var bus = new FakeLanBus();
         var time = new FakeTimeProvider();
         var local = bus.CreateNode("192.168.1.10");
         using var discovery = NewDiscovery(local, time);
 
-        // Start() broadcasts our own announce, which the bus echoes back to us like real UDP does.
-        discovery.Start();
+        // StartAsync() broadcasts our own announce, which the bus echoes back to us like real UDP does.
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
 
         discovery.Peers.ShouldBeEmpty();
     }
 
     [Fact]
-    public void Bye_RemovesPeer()
+    public async Task Bye_RemovesPeer()
     {
         var bus = new FakeLanBus();
         var time = new FakeTimeProvider();
         var local = bus.CreateNode("192.168.1.10");
         using var discovery = NewDiscovery(local, time);
-        discovery.Start();
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
 
         local.DeliverDatagram(new DiscoveryDatagram(
             RemoteAnnounce("remote-1", 1, "Rig"), IPAddress.Parse("192.168.1.20")));
@@ -96,13 +97,13 @@ public class LanDiscoveryTests
     }
 
     [Fact]
-    public void StalePeer_ExpiresAfterTimeout()
+    public async Task StalePeer_ExpiresAfterTimeout()
     {
         var bus = new FakeLanBus();
         var time = new FakeTimeProvider();
         var local = bus.CreateNode("192.168.1.10");
         using var discovery = NewDiscovery(local, time);
-        discovery.Start();
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
 
         local.DeliverDatagram(new DiscoveryDatagram(
             RemoteAnnounce("remote-1", 1, "Rig"), IPAddress.Parse("192.168.1.20")));
@@ -115,13 +116,13 @@ public class LanDiscoveryTests
     }
 
     [Fact]
-    public void ReAnnounce_KeepsPeerAlive()
+    public async Task ReAnnounce_KeepsPeerAlive()
     {
         var bus = new FakeLanBus();
         var time = new FakeTimeProvider();
         var local = bus.CreateNode("192.168.1.10");
         using var discovery = NewDiscovery(local, time);
-        discovery.Start();
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
 
         // Refresh every 2s (< the 5s timeout) — the peer must never expire.
         for (var i = 0; i < 10; i++)
@@ -135,13 +136,13 @@ public class LanDiscoveryTests
     }
 
     [Fact]
-    public void PeersOf_FiltersByService()
+    public async Task PeersOf_FiltersByService()
     {
         var bus = new FakeLanBus();
         var time = new FakeTimeProvider();
         var local = bus.CreateNode("192.168.1.10");
         using var discovery = NewDiscovery(local, time);
-        discovery.Start();
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
 
         local.DeliverDatagram(new DiscoveryDatagram(
             RemoteAnnounce("srv-1", 1888, "Rig", service: "tianwen-server"), IPAddress.Parse("192.168.1.20")));
@@ -160,7 +161,7 @@ public class LanDiscoveryTests
     }
 
     [Fact]
-    public void Changed_FiresOnAddAndRemove_NotOnRefresh()
+    public async Task Changed_FiresOnAddAndRemove_NotOnRefresh()
     {
         var bus = new FakeLanBus();
         var time = new FakeTimeProvider();
@@ -168,7 +169,7 @@ public class LanDiscoveryTests
         using var discovery = NewDiscovery(local, time);
         var changes = 0;
         discovery.Changed += () => changes++;
-        discovery.Start();
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
 
         var announce = RemoteAnnounce("remote-1", 1, "Rig");
         var from = IPAddress.Parse("192.168.1.20");
@@ -184,13 +185,13 @@ public class LanDiscoveryTests
     }
 
     [Fact]
-    public void ListenOnly_DoesNotBroadcast_ButStillReceives()
+    public async Task ListenOnly_DoesNotBroadcast_ButStillReceives()
     {
         var bus = new FakeLanBus();
         var time = new FakeTimeProvider();
         var local = bus.CreateNode("192.168.1.10");
         using var discovery = NewDiscovery(local, time, announce: false);
-        discovery.Start();
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
 
         // A listen-only monitor never announces itself...
         local.Broadcasts.ShouldBeEmpty();

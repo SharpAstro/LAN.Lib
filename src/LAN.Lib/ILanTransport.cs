@@ -1,5 +1,7 @@
 using System;
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace LAN.Lib;
 
@@ -20,7 +22,7 @@ public readonly record struct DiscoveryDatagram(string Text, IPAddress SenderAdd
 public interface ILanTransport : IAsyncDisposable
 {
     /// <summary>Broadcast a discovery datagram to the whole subnet.</summary>
-    void Broadcast(string text);
+    Task BroadcastAsync(string text, CancellationToken cancellationToken = default);
 
     /// <summary>Raised for every discovery datagram received (on a background thread).</summary>
     event Action<DiscoveryDatagram>? DatagramReceived;

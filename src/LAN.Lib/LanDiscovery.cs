@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace LAN.Lib;
 
@@ -32,8 +34,7 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
     // Process constants sent in every beacon purely so consumers can disambiguate look-alike names.
     private readonly string _machineName = Environment.MachineName;
     private readonly int _pid = Environment.ProcessId;
-    private readonly Lock _gate = new();
-    private readonly Dictionary<string, LanPeer> _peers = new();
+    private readonly ConcurrentDictionary<string, LanPeer> _peers = new();
     private ITimer? _beacon;
 
     public LanDiscovery(ILanTransport transport, TimeProvider time, LanDiscoveryOptions options, LanIdentity identity)
@@ -49,43 +50,29 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
     public event Action? Changed;
 
     /// <summary>Begin beaconing (immediately, then every <see cref="BeaconInterval"/>).</summary>
-    public void Start()
+    public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        SendBeacon();
-        _beacon = _time.CreateTimer(_ => SendBeacon(), null, BeaconInterval, BeaconInterval);
+        await SendBeaconAsync(cancellationToken).ConfigureAwait(false);
+        // The timer callback itself can't be async, so each tick fires-and-forgets a beacon; the
+        // transport swallows send failures, so there's nothing here to observe or rethrow.
+        _beacon = _time.CreateTimer(_ => _ = SendBeaconAsync(), null, BeaconInterval, BeaconInterval);
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<LanPeer> Peers
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return SortedSnapshotLocked(_peers.Values);
-            }
-        }
-    }
+    public IReadOnlyList<LanPeer> Peers => SortedSnapshot(_peers.Values);
 
     /// <inheritdoc />
-    public IReadOnlyList<LanPeer> PeersOf(string service)
-    {
-        lock (_gate)
-        {
-            return SortedSnapshotLocked(
-                _peers.Values.Where(p => string.Equals(p.Service, service, StringComparison.OrdinalIgnoreCase)));
-        }
-    }
+    public IReadOnlyList<LanPeer> PeersOf(string service) =>
+        SortedSnapshot(_peers.Values.Where(p => string.Equals(p.Service, service, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>Announce that we're leaving so peers drop us promptly (expiry is the fallback). No-op
     /// when listen-only.</summary>
-    public void SendBye()
-    {
-        if (_options.Announce)
-            _transport.Broadcast(LanProtocol.EncodeBye(_identity.PeerId));
-    }
+    public Task SendByeAsync(CancellationToken cancellationToken = default) =>
+        _options.Announce
+            ? _transport.BroadcastAsync(LanProtocol.EncodeBye(_identity.PeerId), cancellationToken)
+            : Task.CompletedTask;
 
-    private static LanPeer[] SortedSnapshotLocked(IEnumerable<LanPeer> peers) =>
+    private static LanPeer[] SortedSnapshot(IEnumerable<LanPeer> peers) =>
         // Stable order that matches ResolveLabels' numbering: name, then machine, then PID.
         peers
             .OrderBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
@@ -93,12 +80,14 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
             .ThenBy(p => p.Pid)
             .ToArray();
 
-    private void SendBeacon()
+    private async Task SendBeaconAsync(CancellationToken cancellationToken = default)
     {
         if (_options.Announce)
         {
-            _transport.Broadcast(LanProtocol.EncodeAnnounce(
-                _identity.PeerId, _options.ServiceName, _options.ServicePort, _options.NodeName, BuildProperties()));
+            await _transport.BroadcastAsync(
+                LanProtocol.EncodeAnnounce(
+                    _identity.PeerId, _options.ServiceName, _options.ServicePort, _options.NodeName, BuildProperties()),
+                cancellationToken).ConfigureAwait(false);
         }
 
         Prune();
@@ -147,12 +136,11 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
             Properties: props,
             LastSeen: _time.GetUtcNow());
 
-        bool added;
-        lock (_gate)
-        {
-            added = !_peers.ContainsKey(peer.PeerId);
+        // Not a single atomic op, but OnDatagram only ever runs on the transport's one receive thread,
+        // so writes are already serialized; ConcurrentDictionary just makes them safe to read concurrently.
+        var added = _peers.TryAdd(peer.PeerId, peer);
+        if (!added)
             _peers[peer.PeerId] = peer;
-        }
 
         // Only a genuinely new peer changes the set; a periodic refresh of a known peer does not.
         if (added)
@@ -161,27 +149,18 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
 
     private void Remove(string peerId)
     {
-        bool removed;
-        lock (_gate)
-        {
-            removed = _peers.Remove(peerId);
-        }
-        if (removed)
+        if (_peers.TryRemove(peerId, out _))
             Changed?.Invoke();
     }
 
     private void Prune()
     {
         var cutoff = _time.GetUtcNow() - PeerTimeout;
-        bool removedAny;
-        lock (_gate)
-        {
-            var stale = _peers.Where(kv => kv.Value.LastSeen < cutoff).Select(kv => kv.Key).ToArray();
-            foreach (var id in stale)
-                _peers.Remove(id);
-            removedAny = stale.Length > 0;
-        }
-        if (removedAny)
+        var stale = _peers.Where(kv => kv.Value.LastSeen < cutoff).Select(kv => kv.Key).ToArray();
+        foreach (var id in stale)
+            _peers.TryRemove(id, out _);
+
+        if (stale.Length > 0)
             Changed?.Invoke();
     }
 

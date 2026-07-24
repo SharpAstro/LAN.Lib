@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using LAN.Lib;
 
@@ -42,10 +43,11 @@ internal sealed class FakeLanTransport(FakeLanBus bus, IPAddress address) : ILan
 
     public event Action<DiscoveryDatagram>? DatagramReceived;
 
-    public void Broadcast(string text)
+    public Task BroadcastAsync(string text, CancellationToken cancellationToken = default)
     {
         Broadcasts.Add(text);
         bus.Broadcast(this, text);
+        return Task.CompletedTask;
     }
 
     /// <summary>Deliver a datagram straight to this node's listener (a remote peer's announce/bye).</summary>

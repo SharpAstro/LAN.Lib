@@ -14,7 +14,7 @@ public sealed class LanDiscoveryHostedService(LanDiscovery discovery) : Backgrou
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        discovery.Start();
+        await discovery.StartAsync(stoppingToken);
         try
         {
             // Nothing to loop — the discovery timer drives beaconing. Park until shutdown.
@@ -28,7 +28,7 @@ public sealed class LanDiscoveryHostedService(LanDiscovery discovery) : Backgrou
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        try { discovery.SendBye(); } catch { /* best-effort courtesy */ }
+        try { await discovery.SendByeAsync(cancellationToken); } catch { /* best-effort courtesy */ }
         await base.StopAsync(cancellationToken);
     }
 }

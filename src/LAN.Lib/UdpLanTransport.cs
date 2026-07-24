@@ -32,12 +32,17 @@ public sealed class UdpLanTransport : ILanTransport
         _ = ReceiveLoopAsync(_cts.Token);
     }
 
-    public void Broadcast(string text)
+    public async Task BroadcastAsync(string text, CancellationToken cancellationToken = default)
     {
         try
         {
             var bytes = Encoding.UTF8.GetBytes(text);
-            _udp.Send(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, _discoveryPort));
+            await _udp.SendAsync(bytes, new IPEndPoint(IPAddress.Broadcast, _discoveryPort), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
