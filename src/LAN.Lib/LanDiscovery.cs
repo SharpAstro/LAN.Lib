@@ -43,7 +43,10 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
         _time = time;
         _options = options;
         _identity = identity;
-        _transport.DatagramReceived += OnDatagram;
+        // Announce-only nodes never subscribe, so the peer table stays empty by construction rather
+        // than by a caller remembering not to read it (see LanDiscoveryOptions.Listen).
+        if (_options.Listen)
+            _transport.DatagramReceived += OnDatagram;
     }
 
     /// <summary>Raised whenever the set of peers changes (add / bye / expire).</summary>
@@ -170,6 +173,7 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
     public void Dispose()
     {
         _beacon?.Dispose();
-        _transport.DatagramReceived -= OnDatagram;
+        if (_options.Listen)
+            _transport.DatagramReceived -= OnDatagram;
     }
 }

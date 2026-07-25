@@ -28,6 +28,14 @@ public sealed class LanDiscoveryOptions
     /// that wants to see peers without appearing as one itself.</summary>
     public bool Announce { get; set; } = true;
 
+    /// <summary>When false, announce only — never subscribe to the transport's receive stream, so
+    /// <see cref="IPeerTable.Peers"/> stays permanently empty. The mirror of <see cref="Announce"/>,
+    /// for a node that publishes itself but has no business knowing who else is out there: it makes
+    /// "who discovers whom" one-way by construction rather than by convention (a headless service that
+    /// is only ever the <i>target</i> of a bind should not accumulate a table of its own clients).
+    /// Setting both this and <see cref="Announce"/> to false leaves an inert instance.</summary>
+    public bool Listen { get; set; } = true;
+
     /// <summary>Extra facts to advertise in every announce (e.g. a version or capability flag), on top
     /// of the well-known machine/pid/node properties. Keys must be simple identifiers.</summary>
     public IDictionary<string, string> Properties { get; } = new Dictionary<string, string>();
