@@ -16,7 +16,8 @@ public class LanDiscoveryTests
 
     private static LanDiscovery NewDiscovery(
         FakeLanTransport transport, FakeTimeProvider time,
-        string peerId = LocalId, string service = Service, bool announce = true, string nodeId = "")
+        string peerId = LocalId, string service = Service, bool announce = true, string nodeId = "",
+        bool listen = true)
     {
         var options = new LanDiscoveryOptions
         {
@@ -24,6 +25,7 @@ public class LanDiscoveryTests
             ServicePort = 1888,
             NodeName = "Me",
             Announce = announce,
+            Listen = listen,
         };
         return new LanDiscovery(transport, time, options, new LanIdentity(peerId, nodeId));
     }
@@ -222,5 +224,42 @@ public class LanDiscoveryTests
         local.DeliverDatagram(new DiscoveryDatagram(
             RemoteAnnounce("remote-1", 1, "Rig"), IPAddress.Parse("192.168.1.20")));
         discovery.Peers.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task AnnounceOnly_BroadcastsButNeverLearnsPeers()
+    {
+        var bus = new FakeLanBus();
+        var time = new FakeTimeProvider();
+        var local = bus.CreateNode("192.168.1.10");
+        using var discovery = NewDiscovery(local, time, listen: false);
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
+
+        // An announce-only node still publishes itself...
+        local.Broadcasts.ShouldNotBeEmpty();
+
+        // ...but is deaf: a delivered announce is ignored, so the table stays empty. The whole point
+        // is that one-way discovery is structural, not a convention the consumer has to honour.
+        local.DeliverDatagram(new DiscoveryDatagram(
+            RemoteAnnounce("remote-1", 1, "Rig"), IPAddress.Parse("192.168.1.20")));
+        discovery.Peers.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task AnnounceOnly_ChangedNeverFires()
+    {
+        var bus = new FakeLanBus();
+        var time = new FakeTimeProvider();
+        var local = bus.CreateNode("192.168.1.10");
+        using var discovery = NewDiscovery(local, time, listen: false);
+        var changes = 0;
+        discovery.Changed += () => changes++;
+        await discovery.StartAsync(TestContext.Current.CancellationToken);
+
+        local.DeliverDatagram(new DiscoveryDatagram(
+            RemoteAnnounce("remote-1", 1, "Rig"), IPAddress.Parse("192.168.1.20")));
+        time.Advance(LanDiscovery.PeerTimeout + LanDiscovery.BeaconInterval);
+
+        changes.ShouldBe(0);
     }
 }
