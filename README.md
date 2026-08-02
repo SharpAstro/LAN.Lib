@@ -15,6 +15,11 @@ Extracted and generalised from the LAN-play discovery in the `chess` project.
 - **One shared broadcast domain.** All apps broadcast on **one** UDP port (`52821`) with one
   magic prefix; a consumer filters to the service it cares about (`IPeerTable.PeersOf("...")`).
   `ReuseAddress` lets several apps share the port on one host — no port-per-app.
+- **Every interface, not just the routed one.** The announce goes out once *per* up, non-loopback
+  interface, to that interface's directed broadcast address. A single send to `255.255.255.255`
+  leaves a multi-homed host on whichever interface wins the route — commonly a Hyper-V, WSL,
+  Docker or VPN adapter rather than the LAN — while receiving (bound to `Any`) still hears every
+  interface. That asymmetry made such a host *see* its peers while staying invisible to them.
 - **Stable node identity.** A node can mint a persisted node id once (`StableNodeIdPath`) and
   advertise it in every beacon, so a consumer can bind to a node and recognise it across
   restarts even as its address changes. Separate from the per-process *peer id*, which exists
