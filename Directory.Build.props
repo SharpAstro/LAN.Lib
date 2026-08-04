@@ -12,6 +12,12 @@
     <!-- Local builds get Major.Minor.0; CI passes -p:Version=Major.Minor.<run><attempt>+<sha>, and
          the condition lets it win. -->
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(VersionMajorMinor).0</VersionPrefix>
+    <!-- Assembly identity, major.minor.0.0. This was already derived, but from the csproj; it sits here
+         now so every project in the repo gets it and there is nothing to restate. CI stamps -p:Version
+         and -p:FileVersion but NOT -p:AssemblyVersion, so a per-project literal would win in the build
+         that ships — which is how DIR.Lib published 6.4.0.0 for two majors. Only Major.Minor is
+         significant: the build counter stays out, so a republish of the same X.Y keeps its identity. -->
+    <AssemblyVersion>$(VersionMajorMinor).0.0</AssemblyVersion>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     <LangVersion>latest</LangVersion>

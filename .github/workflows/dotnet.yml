@@ -11,6 +11,13 @@ env:
   # lives in the repo-root Directory.Build.props (VersionMajorMinor) and the build job reads it
   # back, so it cannot drift from what the packages declare. Bump it there, 1.0 -> 1.1 on minor
   # feature additions and 1.X -> 2.X on breaking API changes.
+  # Within 1.2, no X.Y bump and NO value change: AssemblyVersion moved from the csproj into that same
+  # repo-root Directory.Build.props. It was already derived, so LAN.Lib still builds 1.2.0.0 -- it just
+  # sits next to the number now, and applies to every project in the repo rather than the one that
+  # remembered to ask. AssemblyVersion is the value CI does NOT stamp (it passes -p:Version and
+  # -p:FileVersion only), so a per-csproj literal wins in the build that ships: that is how DIR.Lib
+  # published 6.4.0.0 for two majors and SdlVulkan.Renderer published 6.11.0.0. All seven sibling repos
+  # now state the rule once, in the props file, with none left in any csproj.
   VERSION_REV: ${{ github.run_attempt }}
   VERSION_HASH: +${{ github.sha }}
   BUILD_CONF: Release
