@@ -1,3 +1,5 @@
+using System.Threading.Tasks;
+using System.Net.Sockets;
 using System.Net;
 using LAN.Lib;
 using Shouldly;
@@ -29,6 +31,36 @@ public class UdpLanTransportTests
         // Asserted as a STRING: the octet order is the whole risk here, and comparing IPAddress
         // objects built the same wrong way round would agree with itself.
         directed.ToString().ShouldBe(expected);
+    }
+
+    [Fact]
+    public async Task WhenTheDiscoveryPortCannotBeBound_ItDegradesToAnnounceOnlyInsteadOfThrowing()
+    {
+        // The failure that took a whole GUI down at DI resolution: a port the OS will not let us bind
+        // (Windows answers WSAEACCES for a port inside a Hyper-V / WSL exclusion). Simulated with an
+        // EXCLUSIVE holder of the port -- the same class of failure, portable to Linux (EADDRINUSE).
+        // Held on the WILDCARD address: Windows lets a wildcard bind coexist with an exclusive bind on a
+        // specific address, so a loopback holder would not block the transport's 0.0.0.0 bind at all.
+        using var holder = new UdpClient();
+        holder.ExclusiveAddressUse = true;
+        holder.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+        var port = ((IPEndPoint)holder.Client.LocalEndPoint!).Port;
+
+        await using var transport = new UdpLanTransport(port);
+
+        transport.ReceiveFailure.ShouldNotBeNull();
+        transport.DiscoveryPort.ShouldBe(port);
+        transport.Degradation.ShouldNotBeNull().ShouldContain(port.ToString());
+        // Announcing still works: an unbound socket sends from an ephemeral port the OS picks.
+        await transport.BroadcastAsync("SALAN 1 BYE probe", TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task AListeningTransportReportsNoDegradation()
+    {
+        await using var transport = new UdpLanTransport(0); // any free port: this test is about the healthy path
+        transport.ReceiveFailure.ShouldBeNull();
+        transport.Degradation.ShouldBeNull();
     }
 
     /// <summary>A /32 is a point-to-point or VPN adapter. Its "directed broadcast" is its own address,

@@ -16,6 +16,11 @@ public sealed class LanDiscoveryOptions
     /// its session/control channel (discovery itself is UDP on <see cref="LanProtocol.DiscoveryPort"/>).</summary>
     public int ServicePort { get; set; }
 
+    /// <summary>The UDP port discovery itself runs on; <see cref="LanProtocol.DiscoveryPort"/> unless every node
+    /// on this LAN is told otherwise (it is a shared broadcast domain, so a lone deviation hears nobody).
+    /// Exists for the box where even the well-known port is reserved, and for tests.</summary>
+    public int DiscoveryPort { get; set; } = LanProtocol.DiscoveryPort;
+
     /// <summary>Human display name for this node, read fresh each beacon so a change propagates.
     /// Defaults to the machine name.</summary>
     public string NodeName { get; set; } = Environment.MachineName;

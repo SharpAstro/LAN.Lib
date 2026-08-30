@@ -26,4 +26,13 @@ public interface ILanTransport : IAsyncDisposable
 
     /// <summary>Raised for every discovery datagram received (on a background thread).</summary>
     event Action<DiscoveryDatagram>? DatagramReceived;
+
+    /// <summary>
+    /// Null when the transport is fully working; otherwise one sentence saying what it cannot do and why --
+    /// for the UDP transport, that the discovery port could not be bound, so this node announces itself but
+    /// will never see a peer. A default so that a bespoke or fake transport need not know the concept. A host
+    /// should log it once at start-up; nothing else in the library acts on it, because there is nothing to
+    /// act on -- discovery is best-effort by nature and the application must be usable without it.
+    /// </summary>
+    string? Degradation => null;
 }

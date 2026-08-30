@@ -1,3 +1,6 @@
+using System.Net.Sockets;
+using System.Net;
+using System.Threading.Tasks;
 using System.Linq;
 using LAN.Lib;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +13,27 @@ namespace LAN.Lib.Tests;
 
 public class ServiceCollectionExtensionsTests
 {
+    [Fact]
+    public async Task AddLanDiscovery_HonoursTheConfiguredDiscoveryPort()
+    {
+        // Pick a port that is free right now, so the transport really binds it.
+        int port;
+        using (var probe = new UdpClient())
+        {
+            probe.Client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+            port = ((IPEndPoint)probe.Client.LocalEndPoint!).Port;
+        }
+
+        var services = new ServiceCollection();
+        services.AddLanDiscovery(o => { o.ServiceName = "test"; o.DiscoveryPort = port; });
+        await using var provider = services.BuildServiceProvider(); // the transport is IAsyncDisposable only
+
+        var transport = provider.GetRequiredService<ILanTransport>().ShouldBeOfType<UdpLanTransport>();
+        transport.DiscoveryPort.ShouldBe(port);
+        transport.Degradation.ShouldBeNull();
+        provider.GetRequiredService<LanDiscoveryOptions>().DiscoveryPort.ShouldBe(port);
+    }
+
     [Fact]
     public void AddLanDiscovery_WiresTransport_Discovery_PeerTable_AndHostedService()
     {

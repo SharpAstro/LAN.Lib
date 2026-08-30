@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,10 +11,16 @@ namespace LAN.Lib;
 /// polite bye on shutdown (expiry is the fallback for an unclean exit). The beacon cadence itself is the
 /// discovery timer's job — this service only bookends its lifetime.
 /// </summary>
-public sealed class LanDiscoveryHostedService(LanDiscovery discovery) : BackgroundService
+public sealed class LanDiscoveryHostedService(LanDiscovery discovery, ILogger<LanDiscoveryHostedService>? logger = null) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // A transport that could not bind its port is running announce-only (see UdpLanTransport). That
+        // is a fact about this box worth exactly one warning, not a reason to stop the host.
+        if (discovery.Degradation is { } degradation)
+        {
+            logger?.LogWarning("{Degradation}", degradation);
+        }
         await discovery.StartAsync(stoppingToken);
         try
         {

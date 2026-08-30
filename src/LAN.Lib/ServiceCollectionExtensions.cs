@@ -24,7 +24,7 @@ public static class ServiceCollectionExtensions
         configure(options);
         services.AddSingleton(options);
 
-        services.TryAddSingleton<ILanTransport>(_ => new UdpLanTransport());
+        services.TryAddSingleton<ILanTransport>(sp => new UdpLanTransport(sp.GetRequiredService<LanDiscoveryOptions>().DiscoveryPort));
 
         services.AddSingleton(sp =>
         {

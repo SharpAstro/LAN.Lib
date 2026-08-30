@@ -46,11 +46,37 @@ public sealed class UdpLanTransport : ILanTransport
         _discoveryPort = discoveryPort;
         _udp = new UdpClient();
         _udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-        _udp.Client.Bind(new IPEndPoint(IPAddress.Any, discoveryPort));
         _udp.EnableBroadcast = true;
-
+        try
+        {
+            _udp.Client.Bind(new IPEndPoint(IPAddress.Any, discoveryPort));
+        }
+        catch (SocketException ex)
+        {
+            // A port we cannot bind -- reserved by the OS (Windows carves Hyper-V / WSL exclusions out of
+            // its dynamic range and answers WSAEACCES 10013 for anything inside one), or held exclusively
+            // by another process -- must not take the HOST down: this constructor runs at DI resolution,
+            // so throwing here killed the whole GUI before its first frame over a feature it can live
+            // without. Degrade instead: sending from an unbound socket still works (the OS binds an
+            // ephemeral port on the first send), so this node keeps announcing itself; it just cannot
+            // hear anyone. Degradation says so, once, for the host to log.
+            ReceiveFailure = ex.SocketErrorCode;
+            return;
+        }
         _ = ReceiveLoopAsync(_cts.Token);
     }
+
+    /// <summary>The discovery port this transport was asked to listen on (bound or not).</summary>
+    public int DiscoveryPort => _discoveryPort;
+
+    /// <summary>The socket error the bind failed with, or null when the transport is listening.</summary>
+    public SocketError? ReceiveFailure { get; }
+
+    /// <inheritdoc/>
+    public string? Degradation => ReceiveFailure is { } error
+        ? $"LAN discovery cannot listen on UDP {_discoveryPort} ({error}, {(int)error}): this node announces itself but will not see any peer. "
+          + "On Windows, check whether the port is inside an excluded range: netsh int ipv4 show excludedportrange protocol=udp"
+        : null;
 
     public async Task BroadcastAsync(string text, CancellationToken cancellationToken = default)
     {

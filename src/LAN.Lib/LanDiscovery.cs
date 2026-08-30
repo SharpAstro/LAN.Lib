@@ -52,6 +52,10 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
     /// <summary>Raised whenever the set of peers changes (add / bye / expire).</summary>
     public event Action? Changed;
 
+    /// <summary>The transport's <see cref="ILanTransport.Degradation"/>, for a host that drives this class
+    /// directly (the GUI) rather than through <see cref="LanDiscoveryHostedService"/>, which logs it.</summary>
+    public string? Degradation => _transport.Degradation;
+
     /// <summary>Begin beaconing (immediately, then every <see cref="BeaconInterval"/>).</summary>
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {

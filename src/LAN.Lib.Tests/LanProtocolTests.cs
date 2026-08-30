@@ -8,6 +8,15 @@ namespace LAN.Lib.Tests;
 public class LanProtocolTests
 {
     [Fact]
+    public void TheDiscoveryPortIsOutsideTheWindowsDynamicRange()
+    {
+        // 49152-65535 is where Windows carves its Hyper-V / WSL / Docker port exclusions; a well-known port
+        // in there fails to bind (WSAEACCES) on an ordinary developer box, which is how 52821 died.
+        LanProtocol.DiscoveryPort.ShouldBeLessThan(49152);
+        LanProtocol.DiscoveryPort.ShouldBeGreaterThan(1023);
+    }
+
+    [Fact]
     public void Announce_RoundTrips_CoreFields()
     {
         var line = LanProtocol.EncodeAnnounce("peer-abc", "tianwen-server", 1888, "Observatory PC");
