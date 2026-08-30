@@ -12,7 +12,7 @@ Extracted and generalised from the LAN-play discovery in the `chess` project.
 - **Symmetric discovery.** Every node broadcasts a small ASCII announce beacon (1 s) *and*
   listens for everyone else's, keeping a live table of peers that self-expires (5 s) when a
   node goes quiet. Both cadences run off an injected `TimeProvider`.
-- **One shared broadcast domain.** All apps broadcast on **one** UDP port (`52821`) with one
+- **One shared broadcast domain.** All apps broadcast on **one** UDP port (`38821`) with one
   magic prefix; a consumer filters to the service it cares about (`IPeerTable.PeersOf("...")`).
   `ReuseAddress` lets several apps share the port on one host — no port-per-app.
 - **Every interface, not just the routed one.** The announce goes out once *per* up, non-loopback

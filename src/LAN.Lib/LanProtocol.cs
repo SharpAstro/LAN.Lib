@@ -50,8 +50,17 @@ public static class LanProtocol
     /// <summary>Protocol version — bumped only on an incompatible wire change.</summary>
     public const int Version = 1;
 
-    /// <summary>Fixed UDP port every SharpAstro app broadcasts/listens on for discovery.</summary>
-    public const int DiscoveryPort = 52821;
+    /// <summary>
+    /// Fixed UDP port every SharpAstro app broadcasts/listens on for discovery.
+    /// <para><b>Below 49152 on purpose.</b> Windows' dynamic port range is 49152-65535 and Hyper-V, WSL and
+    /// Docker carve their port exclusions out of it (<c>netsh int ipv4 show excludedportrange protocol=udp</c>);
+    /// the original 52821 landed inside one on an ordinary developer box and every bind failed with WSAEACCES
+    /// (10013), which took the whole GUI down at DI resolution. 38821 is in the registered range, unassigned,
+    /// and no OS reserves it dynamically. Changing it is a wire-incompatible change (old and new nodes simply
+    /// never hear each other), hence LAN.Lib 2.0. A host that must use another port sets
+    /// <see cref="LanDiscoveryOptions.DiscoveryPort"/>; every node on the LAN has to agree.</para>
+    /// </summary>
+    public const int DiscoveryPort = 38821;
 
     /// <summary>Well-known property key: a stable, persisted node identity (survives restarts).</summary>
     public const string PropNodeId = "node";
