@@ -34,10 +34,32 @@ attribute on the `PackageReference` in the `.csproj`. `nuget.config` restricts r
 `nuget.org` only via package source mapping.
 
 CI (`.github/workflows/dotnet.yml`) runs on push/PR to `main`: restore → build (Release) → test →
-upload the `.nupkg` artifact; a second job pushes to nuget.org on push to `main`. The package
-version is composed there as `1.0.<run_number>+<run_attempt>+<sha>` — bump `VersionPrefix` in
-`LAN.Lib.csproj` by hand for a minor feature addition or breaking change; CI's `run_number` drives
-the patch component.
+upload the `.nupkg` artifact; a second job pushes to nuget.org, gated on **push to `main`** (so a PR
+run shows it as `skipping`, which is correct, not a failure). Note what that gating means in practice:
+**merging to `main` publishes.** There is no separate release trigger to forget or to fire on purpose.
+
+The version's Major.Minor lives in **exactly one place — `VersionMajorMinor` in the repo-root
+`Directory.Build.props`** — and CI reads it back with
+`dotnet msbuild Directory.Build.props -getProperty:VersionMajorMinor`, so it cannot drift from what the
+packages declare. Bump that one line: minor for a feature addition, major for a breaking change. Do not
+restate a version in `LAN.Lib.csproj`; the file holds `VersionMajorMinor`, a conditional
+`VersionPrefix` defaulting to `$(VersionMajorMinor).0` for local packs, and an **unconditional**
+`AssemblyVersion` of `$(VersionMajorMinor).0.0`. `AssemblyVersion` is unconditional on purpose, because
+it is the one value CI does *not* stamp (it passes `-p:Version` and `-p:FileVersion` only), so a csproj
+literal would quietly win for assembly identity in the build that actually ships.
+
+The published version is `X.Y.<run_number><run_attempt>+<sha>`, and the run attempt is **concatenated,
+not a separate component** — run 12, attempt 1 of `2.0` publishes as `2.0.121`, not `2.0.12.1`. Every
+push to `main` therefore republishes the current X.Y under a new build counter, which downstream
+`X.Y.*` floating pins pick up on their next restore with no props change anywhere.
+
+**The release notes live in that workflow's `env:` comment block, newest entry last** — in the yml
+because entries contain `--`, which XML forbids inside a comment, so `Directory.Build.props` cannot
+hold them. Write the entry in the SAME commit as the `VersionMajorMinor` bump. Remembering it
+afterwards means either an extra commit or amending a published one, and either way burns a second
+build-counter publish of the same X.Y; 2.0 shipped that way, its newest note still describing 1.2.
+Say what changed, what is NOT included, and flag a behaviour or wire change explicitly — a consumer
+on a floating pin has no other warning.
 
 ## Architecture
 
@@ -49,10 +71,23 @@ Reading these files in order builds the full picture:
   a foreign/malformed datagram on the shared port is silently ignored rather than misparsed.
   `ANNOUNCE` carries peer id/service/port/name plus an open `key=value` property bag (URL-encoded
   values) for forward-extensibility without a wire bump; `BYE` carries just the peer id.
+  `DiscoveryPort` is **38821**, and the value is load-bearing: it must stay BELOW 49152, because
+  49152-65535 is the Windows dynamic range out of which Hyper-V, WSL and Docker carve port exclusions
+  (`netsh int ipv4 show excludedportrange protocol=udp`). The original 52821 landed inside one on an
+  ordinary box and every bind failed with WSAEACCES. Moving it is wire-incompatible — old and new
+  nodes simply never hear each other — which is what made it LAN.Lib 2.0 rather than a minor.
 
 - **`ILanTransport`** — the one abstraction point: `BroadcastAsync(text)` + a `DatagramReceived`
-  event. `UdpLanTransport` is the real backend (one UDP socket, `ReuseAddress` + `EnableBroadcast`,
-  a background receive loop). Tests never touch a real socket: `FakeLanBus`/`FakeLanTransport` in
+  event, plus `Degradation` — null when healthy, otherwise one sentence saying what this transport
+  cannot do. It is a DEFAULT interface member so a fake or bespoke transport need not know the
+  concept. `UdpLanTransport` is the real backend (one UDP socket, `ReuseAddress` + `EnableBroadcast`,
+  a background receive loop). Its constructor **must not throw on a failed bind**: it runs at DI
+  resolution, so throwing took a whole consuming GUI down before its first frame over an optional
+  feature. It catches the `SocketException` and degrades to announce-only instead — sending from an
+  unbound socket still works, so the node is heard but deaf — which `LanDiscoveryHostedService` logs
+  once and `LanDiscovery` re-exposes for a host driving discovery directly. Nothing else acts on it:
+  discovery is best-effort by nature and the app must stay usable without it. Tests never touch a real
+  socket: `FakeLanBus`/`FakeLanTransport` in
   the test project simulate the shared broadcast domain in-memory, including the self-echo real UDP
   produces (a broadcast reaches the sender's own listener too) — this is what exercises
   `LanDiscovery`'s own-peer-id filter.
