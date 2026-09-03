@@ -18,6 +18,25 @@ env:
   # -p:FileVersion only), so a per-csproj literal wins in the build that ships: that is how DIR.Lib
   # published 6.4.0.0 for two majors and SdlVulkan.Renderer published 6.11.0.0. All seven sibling repos
   # now state the rule once, in the props file, with none left in any csproj.
+  # 2.0 -- BEHAVIOUR CHANGE, and a wire-incompatible one: the discovery port moved from 52821 to 38821.
+  # 52821 sat inside Windows' DYNAMIC port range (49152-65535), which is exactly where Hyper-V, WSL and
+  # Docker carve their exclusions (netsh int ipv4 show excludedportrange protocol=udp). On an ordinary
+  # developer box it landed inside one, every bind failed with WSAEACCES 10013, and because
+  # UdpLanTransport's constructor runs at DI resolution that took a whole consuming GUI down before its
+  # first frame, over a feature the app can live without. 38821 is in the registered range, unassigned,
+  # and never reserved dynamically. A 1.x node and a 2.0 node therefore NEVER SEE EACH OTHER -- both ends
+  # of a session have to be on the same major, which is what makes this a major bump rather than a minor.
+  # Second, independent half of the fix: a bind failure no longer throws. UdpLanTransport catches the
+  # SocketException and degrades to announce-only (sending from an unbound socket still works, so the node
+  # is heard but deaf), reporting it through the NEW ILanTransport.Degradation -- a DEFAULT interface
+  # member, so a bespoke or fake transport need not know the concept. LanDiscoveryHostedService logs it
+  # once as a warning; LanDiscovery re-exposes it for a host driving discovery directly rather than
+  # through the hosted service. Nothing in the library acts on it beyond that, because discovery is
+  # best-effort by nature and the application must stay usable without it. Also NEW:
+  # LanDiscoveryOptions.DiscoveryPort, for the box where even 38821 is reserved -- but it is a shared
+  # broadcast domain, so a lone deviation hears nobody.
+  # NOT included: no change to the ANNOUNCE/BYE grammar or the SALAN magic (LanProtocol.Version stays 1),
+  # and no change to beacon/expiry cadence. Only the port number and the bind-failure path moved.
   VERSION_REV: ${{ github.run_attempt }}
   VERSION_HASH: +${{ github.sha }}
   BUILD_CONF: Release
