@@ -11,7 +11,12 @@ expiry are deterministic in tests. See `README.md` for the full pitch and usage 
 
 Discovery is deliberately UDP-only: its whole job is to tell an app *which address:port* to open a
 session/control channel (TCP, WebSocket, HTTP, …) to. That channel is the consuming app's concern,
-outside this library.
+outside this library. So is how an invite travels: **`LanInvites<T>` and `LanGrants` (2.1) carry
+nothing over the network.** They hold the RULES of asking a peer's person for something (one invite
+at a time, alive only while its asker is, an answer that names what it answers) and of the lasting
+capability an acceptance leaves (a hashed bearer token, verified in constant time, revoked), lifted
+out of chess's lobby so that TianWen's node, whose request arrives over HTTP and is answered by a
+different client of the same machine, keeps chess's rules instead of a second copy of them.
 
 ## Commands
 
@@ -109,6 +114,20 @@ Reading these files in order builds the full picture:
 - **`LanPeer`** — the peer record; `ResolveLabels` progressively disambiguates look-alike display
   names across a peer list (name → + machine name → + ascending-PID suffix), only adding as much
   detail as needed to keep a unique name clean.
+
+- **`LanInvites<T>`**: the answering side of an invite, transport-free: a single slot (a second
+  offer is refused while one waits), an invite withdrawn by the app (`Withdraw`, a socket closing) or
+  by a presence lapse (`Seen` on each poll), an answer by id so a stale answer accepts nothing, and
+  the outcome readable by the asker for `OutcomeRetention`. The whole state is ONE immutable record
+  replaced by compare-and-swap, never a lock, because a UI reads `Pending` every frame. **An update
+  reads the state BEFORE the clock**: `LanInvitesTests` races two offers by running the second from
+  inside the clock read, which is the only way to put it between the first's read and its write
+  deterministically (a many-threads test never overlapped them and passed with the CAS deleted).
+
+- **`LanGrants`**: the lasting capability an acceptance turns into: a 256-bit bearer token minted
+  once and kept only as its SHA-256 (through the app's `ILanGrantStore`), `TryVerify` in constant
+  time over a lock-free array, and grant and revoke serialized by one `SemaphoreSlim` and saved BEFORE
+  they take effect in memory, so a refused save changes nothing and two racing writes lose nothing.
 
 - **`LanDiscoveryOptions`** / **`ServiceCollectionExtensions.AddLanDiscovery`** — DI wiring.
   `ILanTransport` is registered with `TryAddSingleton` specifically so a test (or an app with a
