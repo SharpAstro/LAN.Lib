@@ -37,6 +37,17 @@ env:
   # broadcast domain, so a lone deviation hears nobody.
   # NOT included: no change to the ANNOUNCE/BYE grammar or the SALAN magic (LanProtocol.Version stays 1),
   # and no change to beacon/expiry cadence. Only the port number and the bind-failure path moved.
+  # 2.1: additive. The rules of asking a peer's person for something, lifted out of chess's lobby.
+  # NEW LanInvites<T>, the answering side of an invite: one waits at a time (a second TryOffer is refused),
+  # it lives only while its asker is there (Withdraw, or Seen on each poll with a presence lapse), an
+  # answer names the invite it answers (a stale answer accepts nothing), and the asker reads the outcome
+  # back by id for OutcomeRetention. Lock-free: the state is one record replaced by compare-and-swap.
+  # NEW LanGrants + ILanGrantStore + LanGrant + LanGrantIssued, the lasting capability an acceptance
+  # leaves: a 256-bit bearer token handed out once and stored only as its SHA-256, verified in constant
+  # time, revoked; a write the store refuses did not happen, and writes are serialized so none is lost.
+  # NOT included: neither carries anything over the network (the app's transport does), and chess's own
+  # lobby does not use them yet (it moves onto LanInvites in its own change). No change to discovery,
+  # the wire format or the port.
   VERSION_REV: ${{ github.run_attempt }}
   VERSION_HASH: +${{ github.sha }}
   BUILD_CONF: Release

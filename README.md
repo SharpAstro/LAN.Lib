@@ -3,9 +3,11 @@
 Zero-dependency **LAN peer discovery** for .NET: a symmetric UDP announce beacon plus a
 self-expiring peer table, over a single shared broadcast domain, filtered by service name.
 `TimeProvider`-driven (so beacon cadence and expiry are deterministic in tests), AOT/trim
-friendly, with a one-line DI extension for the .NET generic host.
+friendly, with a one-line DI extension for the .NET generic host. Beside it, the two halves of
+**asking a peer's person for something**: the invite handshake's answering side, and the grants an
+accepted invite leaves behind.
 
-Extracted and generalised from the LAN-play discovery in the `chess` project.
+Extracted and generalised from the LAN play in the `chess` project.
 
 ## What it does
 
@@ -31,6 +33,46 @@ Extracted and generalised from the LAN-play discovery in the `chess` project.
 
 Discovery is **UDP-only** by design: its whole job is to tell an app *which address:port* to
 open a session/control channel to (TCP, WebSocket, HTTP, …). That channel is the app's concern.
+
+## Invites and grants
+
+Neither carries anything over the network: an invite arrives however the app receives it (chess:
+a line on a TCP connection; TianWen: an HTTP route, answered by a different client on the same
+machine), and the rules around it are what is shared.
+
+- **`LanInvites<T>`** is the answering side. **One invite waits at a time**, since a person answers
+  one question at a time, so a second `TryOffer` is refused while one waits. **An invite lives only
+  while its asker is there**: the app calls `Withdraw` when it learns the asker left (a socket
+  closing), or `Seen` on each poll, with a presence lapse after which an unseen invite is withdrawn,
+  so nothing is granted to someone who walked away. **An answer names the invite it answers**, so an
+  answer meant for a withdrawn invite never accepts the one that replaced it. The asker reads the
+  outcome back by id (`OutcomeOf`) for `OutcomeRetention` after the answer. Every read is lock-free
+  (the state is one immutable value replaced by compare-and-swap), so a UI may read `Pending` every
+  frame.
+- **`LanGrants`** is what an acceptance that should last turns into: `GrantAsync` mints a 256-bit
+  bearer token and hands it out once, the store (`ILanGrantStore`, the app's own storage) keeps only
+  its SHA-256, `TryVerify` checks a presented token in constant time, and `RevokeAsync` ends it. A
+  write the store refuses did not happen, and writes are one at a time so none is lost. Over plain
+  HTTP a token can be read off the wire: this stops "anyone who can reach the port", not a hostile
+  network, which is TLS's job.
+
+```csharp
+var invites = new LanInvites<Requester>(TimeProvider.System, presenceLapse: TimeSpan.FromSeconds(15));
+using var grants = new LanGrants(new MyGrantFile(path), TimeProvider.System);
+await grants.LoadAsync(ct);
+
+// The asker's request arrives:
+if (!invites.TryOffer("Laptop (Seb)", requester, out var invite)) { /* busy: answering another */ }
+
+// The person answers, on the machine that owns the thing asked for:
+if (invites.Answer(invite.Id, accept: true) is { } accepted)
+{
+    var issued = await grants.GrantAsync(accepted.Label, ct);   // hand issued.Token to the asker, once
+}
+
+// Every later request:
+if (!grants.TryVerify(presentedToken, out var grant)) { /* refused */ }
+```
 
 ## Usage
 
@@ -67,7 +109,8 @@ service that runs them for the host's lifetime (sending a polite *bye* on shutdo
 
 `LanDiscovery` needs no host and no real sockets: construct it directly with an in-memory
 `ILanTransport` and a `FakeTimeProvider`, then `Advance` the clock to drive beacon cadence and
-expiry deterministically. See `src/LAN.Lib.Tests`.
+expiry deterministically. `LanInvites<T>` and `LanGrants` need neither: a `FakeTimeProvider` and,
+for grants, an in-memory `ILanGrantStore`. See `src/LAN.Lib.Tests`.
 
 ## License
 
