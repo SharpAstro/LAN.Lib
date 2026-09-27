@@ -129,6 +129,13 @@ Reading these files in order builds the full picture:
   time over a lock-free array, and grant and revoke serialized by one `SemaphoreSlim` and saved BEFORE
   they take effect in memory, so a refused save changes nothing and two racing writes lose nothing.
 
+- **`LanHostNames`**: who an address is, by name, for a peer that cannot ask: the reverse lookup's name
+  counted only when it resolves back to the same address (forward-confirmed; an IPv4 address seen
+  through an IPv6 socket is the IPv4 address). Cached per address, a miss included, and bounded by its
+  own budget, never the caller's token, so a caller that gives up leaves the answer for the next and a
+  resolver that ignores its token still cannot hold a request. `DnsHostNameResolver` is the machine's
+  resolver; tests answer through `IHostNameResolver`.
+
 - **`LanDiscoveryOptions`** / **`ServiceCollectionExtensions.AddLanDiscovery`** — DI wiring.
   `ILanTransport` is registered with `TryAddSingleton` specifically so a test (or an app with a
   bespoke transport) can register its own beforehand and have it left in place.
