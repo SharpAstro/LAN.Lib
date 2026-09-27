@@ -5,7 +5,7 @@ self-expiring peer table, over a single shared broadcast domain, filtered by ser
 `TimeProvider`-driven (so beacon cadence and expiry are deterministic in tests), AOT/trim
 friendly, with a one-line DI extension for the .NET generic host. Beside it, the two halves of
 **asking a peer's person for something**: the invite handshake's answering side, and the grants an
-accepted invite leaves behind.
+accepted invite leaves behind; and **who an address is**, by its forward-confirmed host name.
 
 Extracted and generalised from the LAN play in the `chess` project.
 
@@ -55,6 +55,11 @@ machine), and the rules around it are what is shared.
   write the store refuses did not happen, and writes are one at a time so none is lost. Over plain
   HTTP a token can be read off the wire: this stops "anyone who can reach the port", not a hostile
   network, which is TLS's job.
+- **`LanHostNames`** says who an address is, for a peer that cannot ask (another application on the
+  LAN): the name it reverse-resolves to, counted only when that name resolves back to the same
+  address, so it survives a DHCP renewal and a stray PTR record cannot claim it. Each address's
+  answer, a miss included, is cached for `CacheLifetime`, and a lookup is bounded by `LookupBudget`,
+  so a polling client costs one lookup and a resolver that never answers holds nothing.
 
 ```csharp
 var invites = new LanInvites<Requester>(TimeProvider.System, presenceLapse: TimeSpan.FromSeconds(15));
@@ -109,8 +114,9 @@ service that runs them for the host's lifetime (sending a polite *bye* on shutdo
 
 `LanDiscovery` needs no host and no real sockets: construct it directly with an in-memory
 `ILanTransport` and a `FakeTimeProvider`, then `Advance` the clock to drive beacon cadence and
-expiry deterministically. `LanInvites<T>` and `LanGrants` need neither: a `FakeTimeProvider` and,
-for grants, an in-memory `ILanGrantStore`. See `src/LAN.Lib.Tests`.
+expiry deterministically. `LanInvites<T>`, `LanGrants` and `LanHostNames` need neither: a
+`FakeTimeProvider` and, for grants, an in-memory `ILanGrantStore`, for names an `IHostNameResolver`
+answering from tables. See `src/LAN.Lib.Tests`.
 
 ## License
 

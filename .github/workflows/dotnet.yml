@@ -45,6 +45,9 @@ env:
   # NEW LanGrants + ILanGrantStore + LanGrant + LanGrantIssued, the lasting capability an acceptance
   # leaves: a 256-bit bearer token handed out once and stored only as its SHA-256, verified in constant
   # time, revoked; a write the store refuses did not happen, and writes are serialized so none is lost.
+  # NEW LanHostNames + IHostNameResolver + DnsHostNameResolver: who an address is, by the name it
+  # reverse-resolves to, counted only when that name resolves back to the same address, cached per address
+  # (a miss included) and bounded by its own lookup budget.
   # NOT included: neither carries anything over the network (the app's transport does), and chess's own
   # lobby does not use them yet (it moves onto LanInvites in its own change). No change to discovery,
   # the wire format or the port.
