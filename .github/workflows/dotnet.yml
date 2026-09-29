@@ -51,6 +51,15 @@ env:
   # NOT included: neither carries anything over the network (the app's transport does), and chess's own
   # lobby does not use them yet (it moves onto LanInvites in its own change). No change to discovery,
   # the wire format or the port.
+  # 2.2: additive. How far a peer's clock is ahead of this one, lifted out of TianWen's remote-rig mirror.
+  # NEW LanClockOffset: the caller stamps its clock as a request leaves and as the answer arrives, the peer
+  # stamps its own into the answer, Observe takes the three. NTP's estimate (the midpoint of the round trip,
+  # from the sample with the SHORTEST round trip of the last Window, the newest on a tie), and ToLocal /
+  # ToPeer to convert a time. A MinValue ("never") or MaxValue ("no end") is returned as it is and any other
+  # time is clamped to the calendar, never thrown from: shifting MinValue by a negative span threw on the render
+  # thread of every TianWen window that attached to a running session. Lock-free, transport-free.
+  # NOT included: nothing is sent, so how the three stamps travel is the app's transport (TianWen's is its
+  # session-state poll). No change to discovery, the wire format or the port.
   VERSION_REV: ${{ github.run_attempt }}
   VERSION_HASH: +${{ github.sha }}
   BUILD_CONF: Release
