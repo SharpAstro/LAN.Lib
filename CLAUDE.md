@@ -136,6 +136,15 @@ Reading these files in order builds the full picture:
   resolver that ignores its token still cannot hold a request. `DnsHostNameResolver` is the machine's
   resolver; tests answer through `IHostNameResolver`.
 
+- **`LanClockOffset`** (2.2): how far a peer's clock is ahead of this one, transport-free (the caller stamps its
+  clock as a request leaves and as the answer arrives, the peer stamps its own into the answer). NTP's midpoint,
+  taken from the sample with the SHORTEST round trip of the last `Window` (a slow answer says as much about the
+  network as about the clock; the newest wins a tie, so a stepped clock is followed within a window). **A
+  `MinValue` or `MaxValue` is a peer's "never" and "no end", not a time, and `ToLocal`/`ToPeer` return it as it is**:
+  shifting `MinValue` by a negative span threw on the render thread of every window attaching to a running rig.
+  Any other time is clamped to the calendar. Lock-free (one immutable state, compare-and-swap), since a UI reads it
+  every frame.
+
 - **`LanDiscoveryOptions`** / **`ServiceCollectionExtensions.AddLanDiscovery`** — DI wiring.
   `ILanTransport` is registered with `TryAddSingleton` specifically so a test (or an app with a
   bespoke transport) can register its own beforehand and have it left in place.
