@@ -54,7 +54,8 @@ machine), and the rules around it are what is shared.
   its SHA-256, `TryVerify` checks a presented token in constant time, and `RevokeAsync` ends it. A
   write the store refuses did not happen, and writes are one at a time so none is lost. Over plain
   HTTP a token can be read off the wire: this stops "anyone who can reach the port", not a hostile
-  network, which is TLS's job.
+  network, which is TLS's job. `LanGrantFile` is a store in one JSON file (written whole and moved
+  over), for an app with no storage of its own to put grants in.
 - **`LanHostNames`** says who an address is, for a peer that cannot ask (another application on the
   LAN): the name it reverse-resolves to, counted only when that name resolves back to the same
   address, so it survives a DHCP renewal and a stray PTR record cannot claim it. Each address's
