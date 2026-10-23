@@ -112,6 +112,8 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
         };
         if (!string.IsNullOrEmpty(_identity.NodeId))
             props[LanProtocol.PropNodeId] = _identity.NodeId;
+        if (_options.AnnounceAddress?.Invoke() is { } address && LanAddress.IsReachable(address))
+            props[LanProtocol.PropAddress] = address.ToString();
         return props;
     }
 
@@ -135,6 +137,16 @@ public sealed class LanDiscovery : IPeerTable, IDisposable
     private void AddOrRefresh(LanMessage msg, IPAddress senderAddress)
     {
         var props = msg.Properties ?? new Dictionary<string, string>(0);
+        // A node with a virtual adapter (WSL, Hyper-V, Docker) is also heard from that adapter's private 172.x address,
+        // which nothing else on the LAN can reach: where it says it is (its default-route address) wins over where it was
+        // heard, but only over a private sender address, so a beacon cannot point a public sender somewhere else.
+        if (props.TryGetValue(LanProtocol.PropAddress, out var said)
+            && IPAddress.TryParse(said, out var announced)
+            && LanAddress.IsReachable(announced)
+            && LanAddress.IsPrivate(senderAddress))
+        {
+            senderAddress = announced;
+        }
         var peer = new LanPeer(
             PeerId: msg.PeerId,
             Service: msg.Service,

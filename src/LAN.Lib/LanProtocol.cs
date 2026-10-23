@@ -71,6 +71,12 @@ public static class LanProtocol
     /// <summary>Well-known property key: the announcer's OS process id.</summary>
     public const string PropPid = "pid";
 
+    /// <summary>Well-known property key (2.4): the announcer's own LAN address, the one its default route leaves by.
+    /// A node with a WSL/Hyper-V/Docker virtual adapter broadcasts out of that adapter as well, and a peer hears it
+    /// from a 172.x sender address that nothing else on the LAN can reach; this says where to reach it. A 2.3
+    /// receiver ignores it (the bag is open), so announcing it breaks nobody.</summary>
+    public const string PropAddress = "addr";
+
     private static readonly IReadOnlyDictionary<string, string> EmptyProps =
         new Dictionary<string, string>(0);
 

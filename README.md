@@ -56,6 +56,13 @@ machine), and the rules around it are what is shared.
   HTTP a token can be read off the wire: this stops "anyone who can reach the port", not a hostile
   network, which is TLS's job. `LanGrantFile` is a store in one JSON file (written whole and moved
   over), for an app with no storage of its own to put grants in.
+- **`LanAsk`** (2.4) is the asking side, the client half of a grant: `RunAsync` offers, reads the
+  ticket every `interval` while it is pending, and keeps the token the first time it reads accepted,
+  ending as accepted, declined, lapsed (withdrawn or unknown there), timed out or refused. The wire is
+  two delegates the app supplies; the clock is a `TimeProvider`. **`ILanHeldTokens`** is where the
+  tokens a user holds live (endpoint to token, `Forget` to drop one, so that node is watched, not
+  commanded); `LanHeldTokenFile` keeps them in one JSON object of `endpoint: token`, lower-cased,
+  written whole and moved over, readable by its user alone off Windows. A broken file holds nothing.
 - **`LanHostNames`** says who an address is, for a peer that cannot ask (another application on the
   LAN): the name it reverse-resolves to, counted only when that name resolves back to the same
   address, so it survives a DHCP renewal and a stray PTR record cannot claim it. Each address's

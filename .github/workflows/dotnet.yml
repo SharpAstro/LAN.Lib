@@ -60,6 +60,19 @@ env:
   # thread of every TianWen window that attached to a running session. Lock-free, transport-free.
   # NOT included: nothing is sent, so how the three stamps travel is the app's transport (TianWen's is its
   # session-state poll). No change to discovery, the wire format or the port.
+  # 2.4: additive, with ONE BEHAVIOUR CHANGE in discovery. The client half of a grant, lifted out of pilot:
+  # NEW ILanHeldTokens + LanHeldTokenFile (the bearer tokens this user holds, endpoint to token, one JSON object
+  # of endpoint: token, lower-cased keys, temp-and-move write, user-only mode off Windows, Forget; a broken file
+  # holds nothing) and LanAsk.RunAsync (offer, read the ticket while pending, keep the token on the first
+  # accepted read; accepted / declined / lapsed / timed out / refused), transport-agnostic through two delegates
+  # and driven by TimeProvider.
+  # BEHAVIOUR CHANGE (wire compatible with 2.3): an announce now carries an `addr` property, the node's
+  # default-route LAN address (LanAddress.DefaultRoute; LanDiscoveryOptions.AnnounceAddress overrides it), and a
+  # receiver reaches a peer there instead of at a PRIVATE sender address. A node with a WSL/Hyper-V/Docker adapter
+  # was heard from that adapter's 172.x address, which nothing else on the LAN can reach. A 2.3 receiver ignores
+  # the property and a 2.3 announcer sends none, so each keeps working with a 2.4 node, as before. A public
+  # sender is never redirected.
+  # NOT included: no change to the grammar, the magic, the port or beacon cadence; one peer per peer id as ever.
   VERSION_REV: ${{ github.run_attempt }}
   VERSION_HASH: +${{ github.sha }}
   BUILD_CONF: Release

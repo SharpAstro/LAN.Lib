@@ -145,6 +145,19 @@ Reading these files in order builds the full picture:
   Any other time is clamped to the calendar. Lock-free (one immutable state, compare-and-swap), since a UI reads it
   every frame.
 
+- **`LanAsk` / `ILanHeldTokens` / `LanHeldTokenFile`** (2.4): the client half of a grant, beside `LanInvites`/`LanGrants`
+  and, like them, carrying nothing over the network (two delegates, offer and read, are the app's wire). `LanAsk.RunAsync`
+  reads the ticket on `Task.Delay(interval, TimeProvider)` so tests advance a `FakeTimeProvider`; an accepted read with no
+  token is read again; a read that failed is `Pending`. The store is deliberately SYNCHRONOUS (a UI reads it while drawing)
+  and reads the file afresh on every call, so two processes see each other's saves; a broken file is empty, never a throw.
+
+- **Announce address** (2.4): an announce carries `addr` (`LanProtocol.PropAddress`), the default-route address from
+  `LanAddress.DefaultRoute` (a connected UDP socket, nothing sent), because a node with a WSL/Hyper-V/Docker adapter is
+  also heard from that adapter's 172.x address. `LanDiscovery.AddOrRefresh` prefers `addr` over the sender address, but
+  ONLY when the sender is a private address and `addr` is reachable (not loopback/link-local/multicast), so a public
+  sender cannot be redirected. Wire compatible with 2.3 both ways (the property bag is open). Tests set
+  `LanDiscoveryOptions.AnnounceAddress` so none depends on the machine's routing table.
+
 - **`LanDiscoveryOptions`** / **`ServiceCollectionExtensions.AddLanDiscovery`** — DI wiring.
   `ILanTransport` is registered with `TryAddSingleton` specifically so a test (or an app with a
   bespoke transport) can register its own beforehand and have it left in place.
