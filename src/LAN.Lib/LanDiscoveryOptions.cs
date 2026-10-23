@@ -41,6 +41,11 @@ public sealed class LanDiscoveryOptions
     /// Setting both this and <see cref="Announce"/> to false leaves an inert instance.</summary>
     public bool Listen { get; set; } = true;
 
+    /// <summary>Where this node says it is reachable (the <see cref="LanProtocol.PropAddress"/> property), read each
+    /// beacon: <see cref="LanAddress.DefaultRoute"/> unless set. Null (or a function answering null) announces none,
+    /// and a peer then falls back to the address it heard the beacon from. Exists for tests and for a host that knows better.</summary>
+    public Func<System.Net.IPAddress?>? AnnounceAddress { get; set; } = LanAddress.DefaultRoute;
+
     /// <summary>Extra facts to advertise in every announce (e.g. a version or capability flag), on top
     /// of the well-known machine/pid/node properties. Keys must be simple identifiers.</summary>
     public IDictionary<string, string> Properties { get; } = new Dictionary<string, string>();
