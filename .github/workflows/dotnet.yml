@@ -73,6 +73,26 @@ env:
   # the property and a 2.3 announcer sends none, so each keeps working with a 2.4 node, as before. A public
   # sender is never redirected.
   # NOT included: no change to the grammar, the magic, the port or beacon cadence; one peer per peer id as ever.
+  # 2.5: additive, and NO wire or behaviour change to discovery. The MAC behind an IP on this link (tianwen#2040), for a
+  # WiFi device that an address names badly (a Sky-Watcher dongle is 192.168.4.1 whichever mount it is in, and a DHCP
+  # address moves, while its radio's MAC does not): NEW LanNeighbours.PhysicalAddressOfAsync, the MAC of the host behind
+  # an address or null, over NEW ILanNeighbourTable (the operating system's neighbour table behind an interface a test
+  # answers) with LanNeighbourEntry and LanNeighbourState, NEW ILanLinks + NetworkInterfaceLinks (is an address inside
+  # one of this machine's subnets), and LanNeighbourTables.ForThisMachine, which picks the platform's table:
+  # NEW WindowsNeighbourTable (GetIpNetTable2 through LibraryImport, IPv4 and IPv6) and NEW LinuxNeighbourTable
+  # (/proc/net/arp, IPv4). The answer is the HOST's own MAC or null, never the router's: null for loopback,
+  # unspecified, multicast and broadcast addresses, for an address off every local subnet (whose entry would be the
+  # router's), for a row that holds no address yet (incomplete, unreachable) and for an all-zero or all-ones one.
+  # Bounded by LanNeighbours.LookupBudget (2 s) on its own clock even for a table that ignores its token, and not
+  # cached, since the same address can name another device a minute later.
+  # NOT included: macOS answers null (its table is a sysctl routing-socket dump whose parse could not be checked
+  # from the machines this is built on, and a parse off by a byte answers with another device's MAC). Linux has no
+  # IPv6 (the NDP cache is in netlink, not a file). The Windows SendARP fill for an IPv4 address with no row exists
+  # (new WindowsNeighbourTable(fillMissing: true)) but is OFF by default: a router doing proxy ARP answers for any
+  # address on its subnet with its own MAC, so a fill for a peer that has gone would name the router (seen on a home
+  # network); with it off nothing is ever sent. No DI registration (LanNeighbours is built directly, like LanHostNames).
+  # The package now compiles with AllowUnsafeBlocks for the LibraryImport stubs; no DllImport, no reflection.
+  # No change to the grammar, the magic, the port or beacon cadence.
   VERSION_REV: ${{ github.run_attempt }}
   VERSION_HASH: +${{ github.sha }}
   BUILD_CONF: Release
