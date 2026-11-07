@@ -68,6 +68,19 @@ machine), and the rules around it are what is shared.
   address, so it survives a DHCP renewal and a stray PTR record cannot claim it. Each address's
   answer, a miss included, is cached for `CacheLifetime`, and a lookup is bounded by `LookupBudget`,
   so a polling client costs one lookup and a resolver that never answers holds nothing.
+- **`LanNeighbours`** (2.5) is the MAC behind an IP on this link, for a device an address names badly
+  (a Sky-Watcher WiFi dongle is `192.168.4.1` in every mount, and a DHCP address moves, while its radio's
+  MAC does not). It reads the operating system's own neighbour table, which the machine filled the moment
+  it talked to the device: `GetIpNetTable2` on Windows (IPv4 and IPv6), `/proc/net/arp` on Linux (IPv4).
+  **It answers the host's own MAC or `null`, never the router's**: `null` for loopback, multicast and
+  broadcast addresses, for an address outside every subnet this machine is attached to (the table's entry
+  for it would be the router's), and for a row that holds no address yet. It is bounded by `LookupBudget`
+  (two seconds) even if the table never answers, is not cached (the same address can name another device
+  a minute later, so ask right after talking to it), and sends nothing. **macOS answers `null` for now**:
+  its table is a routing-socket dump whose parse could not be checked here, and a MAC that is wrong is worse
+  than none. A Windows table built with `fillMissing: true` also asks the link for an IPv4 address it has no
+  row for (`SendARP`), but that is off by default, since a router doing proxy ARP answers for addresses
+  nobody owns.
 
 ```csharp
 var invites = new LanInvites<Requester>(TimeProvider.System, presenceLapse: TimeSpan.FromSeconds(15));
@@ -85,6 +98,14 @@ if (invites.Answer(invite.Id, accept: true) is { } accepted)
 
 // Every later request:
 if (!grants.TryVerify(presentedToken, out var grant)) { /* refused */ }
+```
+
+And, after talking to a device, the MAC behind its address:
+
+```csharp
+var lookup = new LanNeighbours();                       // this machine's table and adapters
+PhysicalAddress? mac = await lookup.PhysicalAddressOfAsync(IPAddress.Parse("192.168.4.1"), ct);
+if (mac is not null) Console.WriteLine($"that is the mount whose radio is {mac}");
 ```
 
 ## Usage
@@ -124,7 +145,9 @@ service that runs them for the host's lifetime (sending a polite *bye* on shutdo
 `ILanTransport` and a `FakeTimeProvider`, then `Advance` the clock to drive beacon cadence and
 expiry deterministically. `LanInvites<T>`, `LanGrants` and `LanHostNames` need neither: a
 `FakeTimeProvider` and, for grants, an in-memory `ILanGrantStore`, for names an `IHostNameResolver`
-answering from tables. See `src/LAN.Lib.Tests`.
+answering from tables; `LanNeighbours` takes an `ILanNeighbourTable` and an `ILanLinks` the same way,
+and the Windows and Linux tables parse text or rows that a test builds by hand. A test that needs the
+machine's own table is skipped unless `LANLIB_LIVE_NEIGHBOURS=1`. See `src/LAN.Lib.Tests`.
 
 ## License
 

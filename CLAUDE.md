@@ -158,6 +158,24 @@ Reading these files in order builds the full picture:
   sender cannot be redirected. Wire compatible with 2.3 both ways (the property bag is open). Tests set
   `LanDiscoveryOptions.AnnounceAddress` so none depends on the machine's routing table.
 
+- **`LanNeighbours` / `ILanNeighbourTable` / `ILanLinks`** (2.5): the MAC behind an IP on this link, from the operating
+  system's neighbour table, for a device an address names badly (a WiFi dongle is 192.168.4.1 in every mount). Like
+  `LanHostNames` it is built directly, not registered in DI, and sends nothing by default. **It answers the HOST's own
+  MAC or null, never the router's**: null for loopback/unspecified/multicast/broadcast, for an address outside every
+  local subnet (`ILanLinks`, default `NetworkInterfaceLinks`; such an address would answer from the router's entry), and
+  for a row with no address (`LanNeighbourEntry.IsUsable`: incomplete, unreachable, all-zero, all-ones). Bounded by
+  `LookupBudget` on its own clock plus `WaitAsync`, so a table that ignores its token cannot hold the caller; not cached.
+  `LanNeighbourTables.ForThisMachine` picks the table: `WindowsNeighbourTable` (`GetIpNetTable2` through
+  `LibraryImport`, the one `AllowUnsafeBlocks` in the library; IPv4 and IPv6; the row-to-entry mapping is the pure
+  `WindowsNeighbourRows`, tested from hand-built `MibIpNetRow2`s on every platform, with the struct's size and offsets
+  asserted), `LinuxNeighbourTable` (`/proc/net/arp`, IPv4 only, a pure `ParseProcNetArp`), and for macOS and anything else
+  the empty table (macOS's is a sysctl routing-socket dump that cannot be verified from the machines this is built on).
+  **The `SendARP` fill (`new WindowsNeighbourTable(fillMissing: true)`) is off by default on purpose**: a proxy-ARP router
+  answers for any address on its subnet with its own MAC (measured: an unused address on a home network came back as the
+  gateway's), so a fill would name the router for a peer that has gone. It runs on a pool thread, is waited on only as
+  long as the token, and at most two are out per table. `LiveNeighbourTests` reads the real table and is skipped unless
+  `LANLIB_LIVE_NEIGHBOURS=1`, so CI never runs it.
+
 - **`LanDiscoveryOptions`** / **`ServiceCollectionExtensions.AddLanDiscovery`** — DI wiring.
   `ILanTransport` is registered with `TryAddSingleton` specifically so a test (or an app with a
   bespoke transport) can register its own beforehand and have it left in place.
