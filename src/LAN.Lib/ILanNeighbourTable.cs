@@ -91,9 +91,11 @@ public interface ILanNeighbourTable
 {
     /// <summary>
     /// The table's row for exactly <paramref name="address"/>, or null when it holds none (or this table cannot see the
-    /// kind of address it is). Not a lookup on the wire: a table only reports what the machine already learnt, so it is
-    /// cheap, and it never asks the network. A row that is not <see cref="LanNeighbourEntry.IsUsable"/> may be returned as
-    /// it is; the caller decides what to do with it.
+    /// kind of address it is). Not a lookup on the wire in itself: a table reports what the machine already learnt, so it
+    /// is cheap, with one declared exception that is off unless asked for (<see cref="WindowsNeighbourTable"/> built with
+    /// <c>fillMissing: true</c> asks the link for an IPv4 address it has no row for, for as long as
+    /// <paramref name="cancellationToken"/> lets the caller wait). A row that is not
+    /// <see cref="LanNeighbourEntry.IsUsable"/> may be returned as it is; the caller decides what to do with it.
     /// </summary>
     Task<LanNeighbourEntry?> FindAsync(IPAddress address, CancellationToken cancellationToken);
 }
@@ -101,14 +103,35 @@ public interface ILanNeighbourTable
 /// <summary>The neighbour table of the machine this runs on.</summary>
 public static class LanNeighbourTables
 {
-    /// <summary>A table that holds nothing, for a platform whose table is not read yet.</summary>
+    /// <summary>A table that holds nothing, for a platform whose table is not read.</summary>
     public static ILanNeighbourTable Empty { get; } = new EmptyNeighbourTable();
 
     /// <summary>
-    /// The table of this machine: Linux's <c>/proc/net/arp</c> (IPv4). On any other platform it is <see cref="Empty"/>,
+    /// The table of this machine: Windows' <c>GetIpNetTable2</c> (<see cref="WindowsNeighbourTable"/>, IPv4 and IPv6, read
+    /// only: build one with <c>fillMissing: true</c> to also ask the link, see its remarks), or Linux's
+    /// <c>/proc/net/arp</c> (<see cref="LinuxNeighbourTable"/>, IPv4 only). On any other platform it is <see cref="Empty"/>,
     /// which gives <see cref="LanNeighbours"/> no address rather than a wrong one.
+    /// <para><b>macOS is one of those, deliberately.</b> Its table is not a file and not a library call: it is the routing
+    /// socket's dump, <c>sysctl</c> with <c>NET_RT_FLAGS</c> and <c>RTF_LLINFO</c>, a stream of variable-length
+    /// <c>rt_msghdr</c> records each followed by <c>sockaddr</c>s rounded up to a platform-specific alignment, whose
+    /// <c>sockaddr_dl</c> carries the MAC after an interface name of any length. That layout cannot be checked from the
+    /// machines this library is built and tested on, and a parse that is off by a byte answers with another device's MAC,
+    /// which is worse than none. So it answers null until it is written and run on a Mac (or <c>arp -an</c> is read by an
+    /// app that wants it now, behind its own <see cref="ILanNeighbourTable"/>).</para>
     /// </summary>
-    public static ILanNeighbourTable ForThisMachine() => OperatingSystem.IsLinux() ? new LinuxNeighbourTable() : Empty;
+    public static ILanNeighbourTable ForThisMachine()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return new WindowsNeighbourTable();
+        }
+        if (OperatingSystem.IsLinux())
+        {
+            return new LinuxNeighbourTable();
+        }
+        // macOS and every other platform: see the remarks above.
+        return Empty;
+    }
 
     private sealed class EmptyNeighbourTable : ILanNeighbourTable
     {

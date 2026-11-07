@@ -349,17 +349,23 @@ public class LanNeighboursTests
     }
 
     [Fact]
-    public void TheTableOfThisMachineIsLinuxsOnLinuxAndEmptyElsewhereAndNotReadHere()
+    public void TheTableOfThisMachineIsWindowsOnWindowsLinuxsOnLinuxAndEmptyElsewhereAndNotReadHere()
     {
-        // Only the choice is checked: asking it would read this machine's own table.
+        // Only the choice is checked: asking it would read this machine's own table (the live test does).
         var table = LanNeighbourTables.ForThisMachine();
 
-        if (OperatingSystem.IsLinux())
+        if (OperatingSystem.IsWindows())
+        {
+            // Read only: a fill can answer with a proxy-ARP router's MAC for a host that is not there.
+            table.ShouldBeOfType<WindowsNeighbourTable>().FillsMissing.ShouldBeFalse();
+        }
+        else if (OperatingSystem.IsLinux())
         {
             table.ShouldBeOfType<LinuxNeighbourTable>();
         }
         else
         {
+            // macOS is here on purpose: its table is a routing-socket dump nobody has run a parse of yet, so it holds nothing.
             table.ShouldBeSameAs(LanNeighbourTables.Empty);
         }
     }

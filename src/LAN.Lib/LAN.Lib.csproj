@@ -6,6 +6,9 @@
     <RootNamespace>LAN.Lib</RootNamespace>
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>
+    <!-- LibraryImport (the Windows neighbour table's calls into iphlpapi) generates unsafe marshalling
+         stubs, and the table is read out of native memory through a pointer. No other code is unsafe. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <!-- No version properties here. AssemblyVersion and VersionPrefix are both derived from the one
          place the number is written (VersionMajorMinor in the repo-root Directory.Build.props). The
