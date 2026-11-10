@@ -285,7 +285,7 @@ public class LinuxNeighbourTableTests
         try
         {
             var links = new NetworkInterfaceLinks(() => [(IPAddress.Parse("192.168.4.2"), 24), (IPAddress.Parse("192.168.1.50"), 24)]);
-            var lookup = new LanNeighbours(new LinuxNeighbourTable(path), links, TimeProvider.System);
+            var lookup = new LanNeighbours(new LinuxNeighbourTable(path), links, new Microsoft.Extensions.Time.Testing.FakeTimeProvider());
             var ct = TestContext.Current.CancellationToken;
 
             (await lookup.PhysicalAddressOfAsync(IPAddress.Parse("192.168.4.1"), ct)).ShouldBe(DongleMac);

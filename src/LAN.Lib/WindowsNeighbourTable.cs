@@ -74,6 +74,9 @@ public sealed class WindowsNeighbourTable : ILanNeighbourTable
     /// <summary>How many fills are waiting for an answer now: those a caller gave up on count until the call returns.</summary>
     internal int FillsInFlight => Volatile.Read(ref _fillsInFlight);
 
+    /// <summary>Run after each fill has given its slot back, so a test can await the moment instead of polling for it.</summary>
+    internal Action? FillReturned { get; init; }
+
     /// <inheritdoc/>
     public async Task<LanNeighbourEntry?> FindAsync(IPAddress address, CancellationToken cancellationToken)
     {
@@ -121,6 +124,7 @@ public sealed class WindowsNeighbourTable : ILanNeighbourTable
             finally
             {
                 Interlocked.Decrement(ref _fillsInFlight);
+                FillReturned?.Invoke();
             }
         });
     }
