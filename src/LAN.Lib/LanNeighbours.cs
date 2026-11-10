@@ -85,7 +85,7 @@ public sealed class LanNeighbours(ILanNeighbourTable table, ILanLinks links, Tim
         return address.AddressFamily switch
         {
             // 224.0.0.0/4 is multicast and 240.0.0.0/4 is reserved, 255.255.255.255 the limited broadcast among it.
-            AddressFamily.InterNetwork => address.GetAddressBytes()[0] < 224,
+            AddressFamily.InterNetwork => address.GetAddressBytes()[0] is > 0 and < 224,
             AddressFamily.InterNetworkV6 => !address.IsIPv6Multicast,
             _ => false,
         };

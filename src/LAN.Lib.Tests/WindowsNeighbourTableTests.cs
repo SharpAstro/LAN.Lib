@@ -51,7 +51,11 @@ public class WindowsNeighbourTableTests
             return Link.TryGetValue(address, out var mac) ? mac : null;
         }
 
-        public WindowsNeighbourTable Table(bool fillMissing = true) => new(ReadTable, AskLink, fillMissing);
+        /// <summary>Released each time a fill has given its slot back.</summary>
+        public SemaphoreSlim SlotsReturned { get; } = new(0);
+
+        public WindowsNeighbourTable Table(bool fillMissing = true) =>
+            new(ReadTable, AskLink, fillMissing) { FillReturned = () => SlotsReturned.Release() };
 
         public Fakes Learnt(IPAddress address, PhysicalAddress mac, LanNeighbourState state = LanNeighbourState.Reachable)
         {
@@ -173,7 +177,8 @@ public class WindowsNeighbourTableTests
         table.FillsInFlight.ShouldBe(1);
 
         fakes.Hold!.Set();
-        SpinWait.SpinUntil(() => table.FillsInFlight == 0, TimeSpan.FromSeconds(30)).ShouldBeTrue("the slot comes back when the call returns");
+        await fakes.SlotsReturned.WaitAsync(TestContext.Current.CancellationToken);
+        table.FillsInFlight.ShouldBe(0, "the slot comes back when the call returns");
     }
 
     [Fact]
@@ -202,7 +207,11 @@ public class WindowsNeighbourTableTests
 
         fakes.Hold!.Set();
         await Task.WhenAll(first, second);
-        SpinWait.SpinUntil(() => table.FillsInFlight == 0, TimeSpan.FromSeconds(30)).ShouldBeTrue();
+        for (var i = 0; i < WindowsNeighbourTable.MaxFillsInFlight; i++)
+        {
+            await fakes.SlotsReturned.WaitAsync(TestContext.Current.CancellationToken);
+        }
+        table.FillsInFlight.ShouldBe(0);
 
         // With the room free again the next one is filled.
         fakes.Hold = null;
@@ -236,7 +245,8 @@ public class WindowsNeighbourTableTests
         (await pending).ShouldBeNull("the budget is the lookup's, and SendARP cannot be told to stop");
         table.FillsInFlight.ShouldBe(1);
         fakes.Hold!.Set();
-        SpinWait.SpinUntil(() => table.FillsInFlight == 0, TimeSpan.FromSeconds(30)).ShouldBeTrue();
+        await fakes.SlotsReturned.WaitAsync(TestContext.Current.CancellationToken);
+        table.FillsInFlight.ShouldBe(0);
     }
 
     [Fact]
@@ -257,10 +267,15 @@ public class WindowsNeighbourTableTests
     [Fact]
     public async Task ATableWhoseNativeLibraryIsMissingHasNoAnswerForTheFillAndNoException()
     {
-        var table = new WindowsNeighbourTable(_ => null, _ => throw new EntryPointNotFoundException(), fillMissing: true);
+        using var returned = new SemaphoreSlim(0);
+        var table = new WindowsNeighbourTable(_ => null, _ => throw new EntryPointNotFoundException(), fillMissing: true)
+        {
+            FillReturned = () => returned.Release(),
+        };
 
         (await table.FindAsync(Dongle, TestContext.Current.CancellationToken)).ShouldBeNull();
-        SpinWait.SpinUntil(() => table.FillsInFlight == 0, TimeSpan.FromSeconds(30)).ShouldBeTrue();
+        await returned.WaitAsync(TestContext.Current.CancellationToken);
+        table.FillsInFlight.ShouldBe(0);
     }
 
     private static NetworkInterfaceLinks OnTheDonglesLink() =>
