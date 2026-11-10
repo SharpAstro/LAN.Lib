@@ -47,7 +47,8 @@ public class WindowsNeighbourTableTests
         {
             Asked.Enqueue(address);
             Started.Release();
-            Hold?.Wait();
+            // A deadline, so a test that fails before it sets the hold cannot strand a pool thread.
+            Hold?.Wait(TimeSpan.FromSeconds(30));
             return Link.TryGetValue(address, out var mac) ? mac : null;
         }
 
