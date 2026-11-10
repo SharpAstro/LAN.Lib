@@ -73,8 +73,8 @@ public sealed class LanNeighbours(ILanNeighbourTable table, ILanLinks links, Tim
     }
 
     /// <summary>
-    /// False for the addresses no host can answer for on a link: unspecified, loopback, multicast, and (IPv4) the limited
-    /// broadcast and the reserved block above multicast.
+    /// False for the addresses no host can answer for on a link: unspecified (all of 0.0.0.0/8 for IPv4), loopback, multicast,
+    /// and (IPv4) the limited broadcast and the reserved block above multicast.
     /// </summary>
     private static bool CouldHaveAHostOnALink(IPAddress address)
     {

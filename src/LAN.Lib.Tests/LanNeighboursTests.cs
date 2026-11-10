@@ -156,6 +156,7 @@ public class LanNeighboursTests
     [Theory]
     [InlineData("127.0.0.1")]
     [InlineData("127.1.2.3")]
+    [InlineData("0.1.2.3")]
     [InlineData("::1")]
     [InlineData("0.0.0.0")]
     [InlineData("::")]
